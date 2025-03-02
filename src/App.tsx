@@ -1,6 +1,6 @@
 // palette - https://coolors.co/palette/1a535c-4ecdc4-f7fff7-ff6b6b-ffe66d
 import { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { FaPlay, FaPause, FaInfoCircle } from "react-icons/fa";
 
 interface BubbleProps {
@@ -246,14 +246,22 @@ function App() {
 	);
 
 	const InfoModal = () => (
-		<div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+		<motion.div 
+			className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+			initial={{ opacity: 0 }}
+			animate={{ opacity: 1 }}
+			exit={{ opacity: 0 }}
+			transition={{ duration: 0.2 }}
+		>
 			<motion.div
 				initial={{ scale: 0.8, opacity: 0 }}
 				animate={{ scale: 1, opacity: 1 }}
+				exit={{ scale: 0.8, opacity: 0 }}
+				transition={{ duration: 0.2 }}
 				className="bg-white text-black p-8 rounded-lg max-w-md shadow-xl relative">
 				<button
 					onClick={() => setShowInfo(false)}
-					className="absolute top-2 right-2 text-gray-500 hover:text-black">
+					className="absolute top-2 right-2 text-gray-500 hover:text-black transition-colors">
 					✕
 				</button>
 				<h2 className="text-2xl font-bold mb-4">About Bubble Burst</h2>
@@ -270,16 +278,18 @@ function App() {
           <a href="https://kriyanshii.github.io/">reach out  to me</a>
 				</div>
 			</motion.div>
-		</div>
+		</motion.div>
 	);
 
 	return (
 		<div className="flex flex-col items-center justify-center min-h-screen bg-white text-black relative overflow-hidden sigmar-regular">
 			<motion.button
-				onClick={() => setShowInfo(true)}
-				className="absolute top-4 right-4 p-2 text-gray-600 hover:text-black z-50"
+				onClick={() => !showInfo && setShowInfo(true)}
+				className="absolute top-4 right-4 p-2 text-gray-600 hover:text-black z-50 select-none"
 				whileHover={{ scale: 1.1 }}
-				whileTap={{ scale: 0.95 }}>
+				whileTap={{ scale: 0.95 }}
+				transition={{ duration: 0.2 }}
+			>
 				<FaInfoCircle className="w-6 h-6" />
 			</motion.button>
 
@@ -322,13 +332,35 @@ function App() {
 					))}
 				</div>
 			) : showScore ? (
-				<motion.div className="text-center flex flex-col text-3xl font-bold">
-					Game Over! Your score: {burstCount}
-					<button
+				<motion.div 
+					className="text-center flex flex-col items-center justify-center p-4"
+					initial={{ opacity: 0, y: -20 }}
+					animate={{ opacity: 1, y: 0 }}
+				>
+					<motion.h2 
+						className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6"
+						initial={{ scale: 0.9 }}
+						animate={{ scale: 1 }}
+						transition={{ duration: 0.3 }}
+					>
+						Game Over!
+					</motion.h2>
+					<motion.p 
+						className="text-2xl md:text-3xl lg:text-4xl mb-8"
+						initial={{ opacity: 0 }}
+						animate={{ opacity: 1 }}
+						transition={{ delay: 0.2 }}
+					>
+						Your score: {burstCount}
+					</motion.p>
+					<motion.button
 						onClick={resetGame}
-						className="block mt-4 px-6 py-3 bg-black text-white font-semibold rounded-lg shadow-md hover:bg-gray-800 transition">
+						className="px-8 py-4 bg-black text-white text-xl md:text-2xl font-semibold rounded-xl shadow-lg hover:bg-gray-800 active:scale-95 transform transition-all duration-150 ease-in-out"
+						whileHover={{ scale: 1.05 }}
+						whileTap={{ scale: 0.95 }}
+					>
 						Play Again
-					</button>
+					</motion.button>
 				</motion.div>
 			) : (
 				<DifficultySelector />
