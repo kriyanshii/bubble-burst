@@ -1,111 +1,197 @@
-import { useState, useEffect, useRef } from 'react';
-import { motion } from 'framer-motion';
-import './App.css';
+// palette - https://coolors.co/palette/1a535c-4ecdc4-f7fff7-ff6b6b-ffe66d
+import { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { FaPlay } from "react-icons/fa";
 
 interface BubbleProps {
-  id: number;
-  x: number;
-  size: number;
-  onBurst: (id: number) => void;
+	id: number;
+	x: number;
+	size: number;
+	speed: number;
+	color: string;
+	onBurst: (id: number) => void;
 }
 
-const Bubble = ({ id, x, size, onBurst }: BubbleProps) => {
-  // Array of Tailwind blue color classes
-  const blueShades = [
-    'bg-blue-300',
-    'bg-blue-400',
-    'bg-blue-500',
-    'bg-blue-600',
-    'bg-blue-700'
-  ];
-  
-  // Pick a random blue shade
-  const randomBlue = blueShades[Math.floor(Math.random() * blueShades.length)];
-  
-  return (
-    <motion.div
-      className={`${randomBlue} rounded-full absolute cursor-pointer shadow-lg`}
-      style={{ 
-        left: `${x}px`,
-        bottom: 0,
-        width: `${size}px`,
-        height: `${size}px` 
-      }}
-      initial={{ y: 0 }}
-      animate={{ y: `-${window.innerHeight + size}px` }}
-      transition={{ duration: 5, ease: 'linear' }}
-      onMouseEnter={() => onBurst(id)}
-    ></motion.div>
-  );
+const bubbleColors = ["#1A535C", "#4ECDC4", "#FF6B6B", "#FFE66D"];
+
+const Bubble = ({ id, x, size, speed, color, onBurst }: BubbleProps) => {
+	const handleBurst = () => {
+		onBurst(id);
+	};
+
+	return (
+		<motion.div
+			className="rounded-full absolute cursor-pointer shadow-lg"
+			style={{
+				left: x,
+				bottom: "-3rem",
+				width: size,
+				height: size,
+				backgroundColor: color,
+			}}
+			initial={{ y: 0, opacity: 0.8 }}
+			animate={{ y: "-100vh", opacity: [0.8, 1, 0.8] }}
+			transition={{ duration: speed, ease: "linear" }}
+			onAnimationComplete={handleBurst}
+			onMouseEnter={handleBurst}>
+			<motion.div
+				className="w-full h-full rounded-full"
+				initial={{ scale: 1 }}
+				exit={{ scale: 1.5, opacity: 0 }}
+				transition={{ duration: 0.3 }}></motion.div>
+		</motion.div>
+	);
 };
 
 function App() {
-  const [bubbles, setBubbles] = useState<BubbleProps[]>([]);
-  const [burstCount, setBurstCount] = useState(0);
-  const [bestScore, setBestScore] = useState(0);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const nextIdRef = useRef(0);
+	const [bubbles, setBubbles] = useState<BubbleProps[]>([]);
+	const [burstCount, setBurstCount] = useState(0);
+	const [bestScore, setBestScore] = useState(0);
+	const [isPlaying, setIsPlaying] = useState(false);
+	const [timeLeft, setTimeLeft] = useState(30);
+	const [showScore, setShowScore] = useState(false);
+	const [mode, setMode] = useState<"easy" | "mid" | "hard">("easy");
 
-  useEffect(() => {
-    if (!isPlaying) return;
+	const getSpeed = () => {
+		switch (mode) {
+			case "mid":
+				return 4;
+			case "hard":
+				return 2.5;
+			default:
+				return 5;
+		}
+	};
 
-    const createBubble = () => {
-      const newBubble: BubbleProps = {
-        id: nextIdRef.current++,
-        x: Math.random() * (window.innerWidth - 100),
-        size: Math.random() * (50 - 20) + 20,
-        onBurst: burstBubble,
-      };
-      console.log("creating bubble...")
-      setBubbles((prev) => [...prev, newBubble]);
-    };
+	useEffect(() => {
+		if (!isPlaying) return;
 
-    const interval = setInterval(() => {
-      const bubblesPerSecond = Math.floor(Math.random() * 3) + 1;
-      for (let i = 0; i < bubblesPerSecond; i++) {
-        createBubble();
-      }
-    }, 500);
+		const createBubble = () => {
+			const newBubble: BubbleProps = {
+				id: Date.now(),
+				x: Math.random() * (window.innerWidth - 50),
+				size: Math.random() * (80 - 30) + 30,
+				speed: getSpeed(),
+				color: bubbleColors[Math.floor(Math.random() * bubbleColors.length)],
+				onBurst: burstBubble,
+			};
+			setBubbles((prev) => [...prev, newBubble]);
+		};
 
-    return () => clearInterval(interval);
-  }, [isPlaying]);
+		const bubbleInterval = setInterval(() => {
+			createBubble();
+		}, 500);
 
-  const burstBubble = (id: number) => {
-    setBubbles((prev) => prev.filter((bubble) => bubble.id !== id));
-    setBurstCount((prev) => {
-      const newCount = prev + 1;
-      if (newCount > bestScore) setBestScore(newCount);
-      return newCount;
-    });
-  };
+		const timerInterval = setInterval(() => {
+			setTimeLeft((prev) => {
+				if (prev <= 1) {
+					clearInterval(bubbleInterval);
+					clearInterval(timerInterval);
+					setIsPlaying(false);
+					setShowScore(true);
+					return 0;
+				}
+				return prev - 1;
+			});
+		}, 1000);
 
-  const startGame = () => {
-    setIsPlaying(true);
-    setBurstCount(0);
-    setBubbles([]);
-    nextIdRef.current = 0;
-  };
+		return () => {
+			clearInterval(bubbleInterval);
+			clearInterval(timerInterval);
+		};
+	}, [isPlaying, mode]);
 
-  return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-b from-blue-800 to-blue-900 text-white relative overflow-hidden">
-      <h1 className="text-4xl font-bold mb-4 z-10">Bubble Burst Game</h1>
-      {isPlaying ? (
-        <div className="absolute inset-0">
-          <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-10">
-            <p className="text-xl">Burst Count: {burstCount}</p>
-            <p className="text-xl mb-4">Best Score: {bestScore}</p>
-          </div>
-          {bubbles.map((bubble) => (
-            <Bubble key={bubble.id} id={bubble.id} x={bubble.x} size={bubble.size} onBurst={burstBubble} />
-          ))}
-        </div>
-      ) : (
-        <button onClick={startGame} className="px-6 py-3 bg-blue-500 text-white font-semibold rounded-lg shadow-md hover:bg-blue-600 transition z-10">
-          Play
-        </button>
-      )}
-    </div>
-  );
+	const burstBubble = (id: number) => {
+		setBubbles((prev) => prev.filter((bubble) => bubble.id !== id));
+		setBurstCount((prev) => {
+			const newCount = prev + 1;
+			if (newCount > bestScore) setBestScore(newCount);
+			return newCount;
+		});
+	};
+
+	const startGame = () => {
+		setIsPlaying(true);
+		setShowScore(false);
+		setBurstCount(0);
+		setBubbles([]);
+		setTimeLeft(30);
+	};
+
+	return (
+		<div className="flex flex-col items-center justify-center min-h-screen bg-white text-black relative overflow-hidden sigmar-regular">
+			<AnimatePresence>
+				{!isPlaying && !showScore && (
+					<motion.div
+						className="text-center"
+						initial={{ opacity: 0, y: -20 }}
+						animate={{ opacity: 1, y: 0 }}
+						exit={{ opacity: 0, y: 20 }}>
+						<h1 className="text-4xl  flex flex-col font-bold mb-4">
+							Bubble Burst
+						</h1>
+						<div className="flex gap-4 mb-4">
+							<button
+								onClick={() => setMode("easy")}
+								className={`px-4 py-2 rounded-lg font-semibold shadow-md ${
+									mode === "easy" ? "bg-black text-white" : "bg-gray-300"
+								}`}>
+								Easy
+							</button>
+							<button
+								onClick={() => setMode("mid")}
+								className={`px-4 py-2 rounded-lg font-semibold shadow-md ${
+									mode === "mid" ? "bg-black text-white" : "bg-gray-300"
+								}`}>
+								Mid
+							</button>
+							<button
+								onClick={() => setMode("hard")}
+								className={`px-4 py-2 rounded-lg font-semibold shadow-md ${
+									mode === "hard" ? "bg-black text-white" : "bg-gray-300"
+								}`}>
+								Hard
+							</button>
+						</div>
+					</motion.div>
+				)}
+			</AnimatePresence>
+
+			{isPlaying && (
+				<>
+					<motion.div className="absolute top-4 right-4 bg-white text-black px-4 py-2 rounded-full text-lg font-semibold shadow-md">
+						Burst Count: {burstCount}
+					</motion.div>
+					<motion.div className="absolute top-4 left-4 bg-white text-black px-4 py-2 rounded-full text-lg font-semibold shadow-md">
+						Time Left: {timeLeft}s | Best Score: {bestScore}
+					</motion.div>
+				</>
+			)}
+
+			{isPlaying ? (
+				<div className="text-center">
+					{bubbles.map((bubble) => (
+						<Bubble key={bubble.id} {...bubble} />
+					))}
+				</div>
+			) : showScore ? (
+				<motion.div className="text-center flex flex-col text-3xl font-bold">
+					Game Over! Your score: {burstCount}
+					<button
+						onClick={startGame}
+						className="block mt-4 px-6 py-3 bg-black text-white font-semibold rounded-lg shadow-md hover:bg-gray-800 transition">
+						Play Again
+					</button>
+				</motion.div>
+			) : (
+				<motion.button
+					onClick={startGame}
+					className="p-4 bg-black text-white font-semibold rounded-full shadow-md hover:bg-gray-800 transition flex items-center justify-center">
+					<FaPlay className="h-8 w-8" />
+				</motion.button>
+			)}
+		</div>
+	);
 }
 
 export default App;
