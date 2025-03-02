@@ -26,8 +26,16 @@ const Bubble = ({
 	onBurst,
 	isPaused,
 }: BubbleProps) => {
+	const [isBursting, setIsBursting] = useState(false);
+
 	const handleBurst = () => {
-		onBurst(id, points);
+		if (!isBursting) {
+			setIsBursting(true);
+			// Delay the actual burst callback to allow animation to play
+			setTimeout(() => {
+				onBurst(id, points);
+			}, 300); // Match this with animation duration
+		}
 	};
 
 	return (
@@ -40,22 +48,47 @@ const Bubble = ({
 				height: size,
 				backgroundColor: color,
 			}}
-			initial={{ y: 0, opacity: 0.8 }}
-			animate={{ y: "-100vh", opacity: [0.8, 1, 0.8] }}
+			initial={{ y: 0, opacity: 0.8, scale: 1 }}
+			animate={{
+				y: isBursting ? "-95vh" : "-100vh",
+				opacity: isBursting ? 0 : [0.8, 1, 0.8],
+				scale: isBursting ? 1.5 : 1,
+			}}
 			transition={{
-				duration: speed,
-				ease: "linear",
-				repeat: 0,
-				repeatType: "loop",
+				y: { duration: speed, ease: "linear" },
+				opacity: { duration: isBursting ? 0.3 : speed },
+				scale: { duration: 0.3 },
 				paused: isPaused,
 			}}
-			onAnimationComplete={handleBurst}
+			onAnimationComplete={!isBursting ? handleBurst : undefined}
 			onMouseEnter={handleBurst}>
-			<motion.div
-				className="w-full h-full rounded-full"
-				initial={{ scale: 1 }}
-				exit={{ scale: 1.5, opacity: 0 }}
-				transition={{ duration: 0.3 }}></motion.div>
+			{/* Add particles for burst effect */}
+			{isBursting && (
+				<motion.div
+					className="absolute inset-0"
+					initial={{ scale: 1 }}
+					animate={{ scale: 1.5, opacity: 0 }}>
+					{[...Array(8)].map((_, i) => (
+						<motion.div
+							key={i}
+							className="absolute w-2 h-2 rounded-full"
+							style={{
+								backgroundColor: color,
+								left: "50%",
+								top: "50%",
+								transform: `rotate(${i * 45}deg)`,
+							}}
+							initial={{ x: 0, y: 0 }}
+							animate={{
+								x: Math.cos((i * Math.PI) / 4) * size,
+								y: Math.sin((i * Math.PI) / 4) * size,
+								opacity: 0,
+							}}
+							transition={{ duration: 0.3, ease: "easeOut" }}
+						/>
+					))}
+				</motion.div>
+			)}
 		</motion.div>
 	);
 };
@@ -226,7 +259,7 @@ function App() {
 				<h2 className="text-2xl font-bold mb-4">About Bubble Burst</h2>
 				<div className="space-y-4 text-gray-700">
 					<p>
-						Built by Kriyanshi Soni as a fun project to explore React, Framer Motion, and game development concepts.
+						Built by Kriyanshi Shah as a fun project to explore React, Framer Motion, and game development concepts.
 					</p>
 					<p>
 						The game challenges players to catch bubbles of different sizes, with smaller bubbles worth more points!
@@ -234,6 +267,7 @@ function App() {
 					<p className="text-sm text-gray-500 mt-4">
 						Tech Stack: React, TypeScript, Tailwind CSS, Framer Motion
 					</p>
+          <a href="https://kriyanshii.github.io/">reach out  to me</a>
 				</div>
 			</motion.div>
 		</div>
