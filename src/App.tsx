@@ -1,7 +1,7 @@
 // palette - https://coolors.co/palette/1a535c-4ecdc4-f7fff7-ff6b6b-ffe66d
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { FaPlay } from "react-icons/fa";
+import { FaPlay, FaPause, FaInfoCircle } from "react-icons/fa";
 
 interface BubbleProps {
 	id: number;
@@ -9,14 +9,25 @@ interface BubbleProps {
 	size: number;
 	speed: number;
 	color: string;
-	onBurst: (id: number) => void;
+	points: number;
+	onBurst: (id: number, points: number) => void;
+	isPaused: boolean;
 }
 
 const bubbleColors = ["#1A535C", "#4ECDC4", "#FF6B6B", "#FFE66D"];
 
-const Bubble = ({ id, x, size, speed, color, onBurst }: BubbleProps) => {
+const Bubble = ({
+	id,
+	x,
+	size,
+	speed,
+	color,
+	points,
+	onBurst,
+	isPaused,
+}: BubbleProps) => {
 	const handleBurst = () => {
-		onBurst(id);
+		onBurst(id, points);
 	};
 
 	return (
@@ -31,7 +42,13 @@ const Bubble = ({ id, x, size, speed, color, onBurst }: BubbleProps) => {
 			}}
 			initial={{ y: 0, opacity: 0.8 }}
 			animate={{ y: "-100vh", opacity: [0.8, 1, 0.8] }}
-			transition={{ duration: speed, ease: "linear" }}
+			transition={{
+				duration: speed,
+				ease: "linear",
+				repeat: 0,
+				repeatType: "loop",
+				paused: isPaused,
+			}}
 			onAnimationComplete={handleBurst}
 			onMouseEnter={handleBurst}>
 			<motion.div
@@ -46,11 +63,20 @@ const Bubble = ({ id, x, size, speed, color, onBurst }: BubbleProps) => {
 function App() {
 	const [bubbles, setBubbles] = useState<BubbleProps[]>([]);
 	const [burstCount, setBurstCount] = useState(0);
-	const [bestScore, setBestScore] = useState(0);
+	const [bestScore, setBestScore] = useState(() => {
+		const savedScore = localStorage.getItem('bubbleBurstBestScore');
+		return savedScore ? parseInt(savedScore) : 0;
+	});
 	const [isPlaying, setIsPlaying] = useState(false);
 	const [timeLeft, setTimeLeft] = useState(30);
 	const [showScore, setShowScore] = useState(false);
 	const [mode, setMode] = useState<"easy" | "mid" | "hard">("easy");
+	const [isPaused, setIsPaused] = useState(false);
+	const [showInfo, setShowInfo] = useState(false);
+
+	useEffect(() => {
+		localStorage.setItem('bubbleBurstBestScore', bestScore.toString());
+	}, [bestScore]);
 
 	const getSpeed = () => {
 		switch (mode) {
@@ -63,17 +89,26 @@ function App() {
 		}
 	};
 
+	const calculatePoints = (size: number) => {
+		if (size < 40) return 3;
+		if (size < 60) return 2;
+		return 1;
+	};
+
 	useEffect(() => {
-		if (!isPlaying) return;
+		if (!isPlaying || isPaused) return;
 
 		const createBubble = () => {
+			const size = Math.random() * (80 - 30) + 30;
 			const newBubble: BubbleProps = {
 				id: Date.now(),
 				x: Math.random() * (window.innerWidth - 50),
-				size: Math.random() * (80 - 30) + 30,
+				size,
 				speed: getSpeed(),
 				color: bubbleColors[Math.floor(Math.random() * bubbleColors.length)],
+				points: calculatePoints(size),
 				onBurst: burstBubble,
+				isPaused: isPaused,
 			};
 			setBubbles((prev) => [...prev, newBubble]);
 		};
@@ -99,15 +134,21 @@ function App() {
 			clearInterval(bubbleInterval);
 			clearInterval(timerInterval);
 		};
-	}, [isPlaying, mode]);
+	}, [isPlaying, mode, isPaused]);
 
-	const burstBubble = (id: number) => {
+	const burstBubble = (id: number, points: number) => {
 		setBubbles((prev) => prev.filter((bubble) => bubble.id !== id));
 		setBurstCount((prev) => {
-			const newCount = prev + 1;
-			if (newCount > bestScore) setBestScore(newCount);
+			const newCount = prev + points;
+			if (newCount > bestScore) {
+				setBestScore(newCount);
+			}
 			return newCount;
 		});
+	};
+
+	const togglePause = () => {
+		setIsPaused(!isPaused);
 	};
 
 	const startGame = () => {
@@ -116,79 +157,147 @@ function App() {
 		setBurstCount(0);
 		setBubbles([]);
 		setTimeLeft(30);
+		setIsPaused(false);
 	};
+
+	const resetGame = () => {
+		setShowScore(false);
+		setBurstCount(0);
+		setBubbles([]);
+		setTimeLeft(30);
+		setIsPaused(false);
+	};
+
+	const DifficultySelector = () => (
+		<motion.div
+			className="text-center"
+			initial={{ opacity: 0, y: -20 }}
+			animate={{ opacity: 1, y: 0 }}
+			exit={{ opacity: 0, y: 20 }}>
+			<h1 className="text-4xl flex flex-col font-bold mb-4">
+				Bubble Burst
+			</h1>
+			<div className="flex gap-4 mb-4">
+				<button
+					onClick={() => {
+						setMode("easy");
+						startGame();
+					}}
+					className={`px-4 py-2 rounded-lg font-semibold shadow-md ${
+						mode === "easy" ? "bg-black text-white" : "bg-gray-300"
+					}`}>
+					Easy
+				</button>
+				<button
+					onClick={() => {
+						setMode("mid");
+						startGame();
+					}}
+					className={`px-4 py-2 rounded-lg font-semibold shadow-md ${
+						mode === "mid" ? "bg-black text-white" : "bg-gray-300"
+					}`}>
+					Mid
+				</button>
+				<button
+					onClick={() => {
+						setMode("hard");
+						startGame();
+					}}
+					className={`px-4 py-2 rounded-lg font-semibold shadow-md ${
+						mode === "hard" ? "bg-black text-white" : "bg-gray-300"
+					}`}>
+					Hard
+				</button>
+			</div>
+		</motion.div>
+	);
+
+	const InfoModal = () => (
+		<div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+			<motion.div
+				initial={{ scale: 0.8, opacity: 0 }}
+				animate={{ scale: 1, opacity: 1 }}
+				className="bg-white text-black p-8 rounded-lg max-w-md shadow-xl relative">
+				<button
+					onClick={() => setShowInfo(false)}
+					className="absolute top-2 right-2 text-gray-500 hover:text-black">
+					✕
+				</button>
+				<h2 className="text-2xl font-bold mb-4">About Bubble Burst</h2>
+				<div className="space-y-4 text-gray-700">
+					<p>
+						Built by Kriyanshi Soni as a fun project to explore React, Framer Motion, and game development concepts.
+					</p>
+					<p>
+						The game challenges players to catch bubbles of different sizes, with smaller bubbles worth more points!
+					</p>
+					<p className="text-sm text-gray-500 mt-4">
+						Tech Stack: React, TypeScript, Tailwind CSS, Framer Motion
+					</p>
+				</div>
+			</motion.div>
+		</div>
+	);
 
 	return (
 		<div className="flex flex-col items-center justify-center min-h-screen bg-white text-black relative overflow-hidden sigmar-regular">
-			<AnimatePresence>
-				{!isPlaying && !showScore && (
-					<motion.div
-						className="text-center"
-						initial={{ opacity: 0, y: -20 }}
-						animate={{ opacity: 1, y: 0 }}
-						exit={{ opacity: 0, y: 20 }}>
-						<h1 className="text-4xl  flex flex-col font-bold mb-4">
-							Bubble Burst
-						</h1>
-						<div className="flex gap-4 mb-4">
-							<button
-								onClick={() => setMode("easy")}
-								className={`px-4 py-2 rounded-lg font-semibold shadow-md ${
-									mode === "easy" ? "bg-black text-white" : "bg-gray-300"
-								}`}>
-								Easy
-							</button>
-							<button
-								onClick={() => setMode("mid")}
-								className={`px-4 py-2 rounded-lg font-semibold shadow-md ${
-									mode === "mid" ? "bg-black text-white" : "bg-gray-300"
-								}`}>
-								Mid
-							</button>
-							<button
-								onClick={() => setMode("hard")}
-								className={`px-4 py-2 rounded-lg font-semibold shadow-md ${
-									mode === "hard" ? "bg-black text-white" : "bg-gray-300"
-								}`}>
-								Hard
-							</button>
-						</div>
-					</motion.div>
-				)}
-			</AnimatePresence>
+			<motion.button
+				onClick={() => setShowInfo(true)}
+				className="absolute top-4 right-4 p-2 text-gray-600 hover:text-black z-50"
+				whileHover={{ scale: 1.1 }}
+				whileTap={{ scale: 0.95 }}>
+				<FaInfoCircle className="w-6 h-6" />
+			</motion.button>
+
+			{showInfo && <InfoModal />}
 
 			{isPlaying && (
 				<>
-					<motion.div className="absolute top-4 right-4 bg-white text-black px-4 py-2 rounded-full text-lg font-semibold shadow-md">
+					<motion.div className="absolute top-4 right-16 bg-white text-black px-4 py-2 rounded-full text-lg font-semibold shadow-md">
 						Burst Count: {burstCount}
 					</motion.div>
 					<motion.div className="absolute top-4 left-4 bg-white text-black px-4 py-2 rounded-full text-lg font-semibold shadow-md">
 						Time Left: {timeLeft}s | Best Score: {bestScore}
 					</motion.div>
+					<motion.button
+						onClick={togglePause}
+						className="absolute top-4 left-1/2 -translate-x-1/2 p-4 bg-black text-white font-semibold rounded-full shadow-md hover:bg-gray-800 transition flex items-center justify-center z-50">
+						{isPaused ? (
+							<FaPlay className="h-6 w-6" />
+						) : (
+							<FaPause className="h-6 w-6" />
+						)}
+					</motion.button>
 				</>
 			)}
 
 			{isPlaying ? (
 				<div className="text-center">
+					{isPaused && (
+						<div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-40">
+							<motion.div
+								initial={{ scale: 0.8, opacity: 0 }}
+								animate={{ scale: 1, opacity: 1 }}
+								className="text-white text-4xl font-bold">
+								PAUSED
+							</motion.div>
+						</div>
+					)}
 					{bubbles.map((bubble) => (
-						<Bubble key={bubble.id} {...bubble} />
+						<Bubble key={bubble.id} {...bubble} isPaused={isPaused} />
 					))}
 				</div>
 			) : showScore ? (
 				<motion.div className="text-center flex flex-col text-3xl font-bold">
 					Game Over! Your score: {burstCount}
 					<button
-						onClick={startGame}
+						onClick={resetGame}
 						className="block mt-4 px-6 py-3 bg-black text-white font-semibold rounded-lg shadow-md hover:bg-gray-800 transition">
 						Play Again
 					</button>
 				</motion.div>
 			) : (
-				<motion.button
-					onClick={startGame}
-					className="p-4 bg-black text-white font-semibold rounded-full shadow-md hover:bg-gray-800 transition flex items-center justify-center">
-					<FaPlay className="h-8 w-8" />
-				</motion.button>
+				<DifficultySelector />
 			)}
 		</div>
 	);
